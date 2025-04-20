@@ -60,8 +60,13 @@ if st.button("Optimize Portfolio"):
         weight_df = pd.DataFrame({'Ticker': prices.columns, 'Weight': np.round(opt_weights, 4)})
         st.dataframe(weight_df)
 
+        # Pie chart for non-zero weights only
+        non_zero_mask = opt_weights > 0
+        filtered_weights = opt_weights[non_zero_mask]
+        filtered_labels = prices.columns[non_zero_mask]
+
         fig, ax = plt.subplots()
-        ax.pie(opt_weights, labels=prices.columns, autopct='%1.1f%%')
+        ax.pie(filtered_weights, labels=filtered_labels, autopct='%1.1f%%')
         ax.set_title('Portfolio Allocation')
         st.pyplot(fig)
 
