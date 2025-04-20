@@ -44,10 +44,14 @@ if st.button("Optimize Portfolio"):
 
     result = optimize_portfolio(mean_returns, cov_matrix, risk_tolerance, risk_free_rate)
     opt_weights = result.x
+    total_weight = np.sum(opt_weights)
+    if not np.isclose(total_weight, 1.0, atol=1e-4):
+        st.warning(f"⚠️ Portfolio weights sum to {total_weight:.4f}. They have been re-normalized for display.")
 
     weight_df = pd.DataFrame({'Ticker': prices.columns, 'Weight': np.round(opt_weights, 4)})
     weight_df['Sector'] = weight_df['Ticker'].map(get_sector_mapping(prices.columns))
-    non_zero_df = weight_df[weight_df['Weight'] > 0]
+    non_zero_df = weight_df[weight_df['Weight'] > 0].copy()
+    non_zero_df['Weight'] = non_zero_df['Weight'] / non_zero_df['Weight'].sum()
 
     selected_tickers = non_zero_df['Ticker'].tolist()
     prices = prices[selected_tickers]
