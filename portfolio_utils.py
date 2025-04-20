@@ -2,11 +2,12 @@
 import yfinance as yf
 import numpy as np
 from scipy.optimize import minimize
+import pandas as pd
 
 def get_price_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end, group_by='ticker', auto_adjust=True)
     if len(tickers) == 1:
-        return data
+        return pd.DataFrame(data)
     return data.xs('Close', axis=1, level=1)
 
 def calculate_returns(prices):
