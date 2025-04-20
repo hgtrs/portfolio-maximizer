@@ -56,7 +56,8 @@ if st.button("Optimize Portfolio"):
     cov_matrix = returns.cov()
 
     st.subheader("📊 Optimized Portfolio Statistics")
-    ret, vol, sharpe = portfolio_stats(opt_weights, mean_returns, cov_matrix, risk_free_rate)
+    filtered_weights = np.array([opt_weights[i] for i, t in enumerate(prices.columns) if t in mean_returns.index])
+    ret, vol, sharpe = portfolio_stats(filtered_weights, mean_returns, cov_matrix, risk_free_rate)
 
     # Portfolio Analytics
     benchmark_data = yf.download(['SPY'], start=start_date, end=end_date, group_by='ticker', auto_adjust=True)
@@ -70,7 +71,7 @@ if st.button("Optimize Portfolio"):
     max_drawdown = drawdown.min()
     VaR = np.percentile(portfolio_returns * -1, 5)
     CVaR = (portfolio_returns[portfolio_returns < -VaR]).mean() * -1
-    beta = np.cov(portfolio_returns, spy_returns)[0, 1] / np.var(spy_returns)
+    beta = np.cov(portfolio_returns.values.ravel(), spy_returns.values.ravel())[0, 1] / np.var(spy_returns.values.ravel())
     cumulative_return = (opt_cum_returns.iloc[-1] - 1)
 
     st.markdown(f'''
@@ -116,3 +117,56 @@ if st.button("Optimize Portfolio"):
     ax.set_yticks(range(len(corr.columns)))
     ax.set_yticklabels(corr.columns)
     st.pyplot(fig)
+
+# Scenario-Based Simulation
+st.subheader("🧪 Scenario Analysis: Best, Base, Worst Cases")
+
+starting_value = st.number_input("Enter your starting portfolio value ($)", value=10000.0, step=100.0)
+n_years = 5
+n_simulations = 10000
+
+simulated_returns = np.random.normal(portfolio_returns.mean(), portfolio_returns.std(), (n_simulations, 252 * n_years))
+simulated_growth = starting_value * np.exp(simulated_returns.cumsum(axis=1))
+ending_values = simulated_growth[:, -1]
+sim_annual_returns = simulated_returns.sum(axis=1) / n_years
+
+best_case = np.percentile(ending_values, 90)
+base_case = np.percentile(ending_values, 50)
+worst_case = np.percentile(ending_values, 10)
+
+st.markdown("**Expected Portfolio Value in 5 Years:**")
+st.markdown(f"- 🟢 **Best Case (90th percentile)**: ${best_case:,.0f}")
+st.markdown(f"- ⚪ **Base Case (Median)**: ${base_case:,.0f}")
+st.markdown(f"- 🔴 **Worst Case (10th percentile)**: ${worst_case:,.0f}")
+
+# Scenario Risk Metrics
+VaR_95 = -np.percentile(sim_annual_returns, 5)
+CVaR_95 = -sim_annual_returns[sim_annual_returns < -VaR_95].mean()
+st.markdown("**Simulated Risk Metrics:**")
+st.markdown(f"- 📉 **Value at Risk (95%)**: {VaR_95:.2%}")
+st.markdown(f"- 🔥 **Conditional VaR (CVaR)**: {CVaR_95:.2%}")
+st.markdown(f"- 📊 **Standard Deviation of Returns**: {np.std(sim_annual_returns):.2%}")
+
+# Visual Distribution of Simulated Outcomes
+st.subheader("📊 Simulated Return Distribution")
+fig, ax = plt.subplots()
+counts, bins, patches = ax.hist(ending_values, bins=50, color='lightgray', edgecolor='black')
+ax.axvline(best_case, color='green', linestyle='--', label='Best Case')
+ax.axvline(base_case, color='blue', linestyle='--', label='Base Case')
+ax.axvline(worst_case, color='red', linestyle='--', label='Worst Case')
+ax.set_title("Distribution of Portfolio Value in 5 Years")
+ax.set_xlabel("Ending Portfolio Value ($)")
+ax.set_ylabel("Frequency")
+ax.legend()
+st.pyplot(fig)
+
+# Correlation Summary Explanation
+corr_matrix = corr.copy()
+np.fill_diagonal(corr_matrix.values, np.nan)
+max_corr = corr_matrix.stack().idxmax()
+min_corr = corr_matrix.stack().idxmin()
+
+st.markdown("### 🧠 Correlation Summary")
+st.markdown(f"- 🔗 **Most Correlated**: `{max_corr[0]}` and `{max_corr[1]}` with a correlation of **{corr.loc[max_corr]:.2f}**")
+st.markdown(f"- 🔍 **Least Correlated**: `{min_corr[0]}` and `{min_corr[1]}` with a correlation of **{corr.loc[min_corr]:.2f}**")
+st.markdown("Understanding these relationships can help improve diversification and reduce total portfolio risk.")
