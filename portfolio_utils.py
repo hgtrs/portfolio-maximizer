@@ -3,7 +3,14 @@ import yfinance as yf
 import numpy as np
 
 def get_price_data(tickers, start, end):
-    return yf.download(tickers, start=start, end=end)['Adj Close']
+    data = yf.download(tickers, start=start, end=end, group_by='ticker', auto_adjust=True)
+    
+    if len(tickers) == 1:
+        return data  # single ticker returns normal format
+    
+    # For multiple tickers: extract 'Adj Close' from the multi-index
+    adj_close = data.xs('Adj Close', axis=1, level=1)
+    return adj_close
 
 def calculate_returns(prices):
     return prices.pct_change().dropna()
