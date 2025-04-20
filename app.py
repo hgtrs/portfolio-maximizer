@@ -18,6 +18,7 @@ from portfolio_utils import (
 st.set_page_config(page_title="Portfolio Optimizer Pro", layout="wide")
 st.title("📈 Advanced Stock Portfolio Optimizer")
 
+# User Inputs
 tickers_input = st.text_area("Enter up to 20 stock tickers (comma-separated)", "AAPL,MSFT,GOOGL,AMZN")
 tickers = [t.strip().upper() for t in tickers_input.split(',') if t.strip()][:20]
 
@@ -28,11 +29,19 @@ risk_free_rate = st.slider("Risk-Free Rate (%)", 0.0, 5.0, 1.0) / 100
 
 if st.button("Optimize Portfolio"):
     tickers = validate_tickers(tickers)
-    prices = get_price_data(tickers, start_date, end_date).dropna(axis=1)
-    returns = calculate_returns(prices)
+    if not tickers:
+        st.error("No valid tickers found. Please check your input.")
+        st.stop()
 
+    prices = get_price_data(tickers, start_date, end_date)
+    if prices.empty:
+        st.error("No price data available. Try different tickers or date range.")
+        st.stop()
+
+    returns = calculate_returns(prices)
     mean_returns = returns.mean()
     cov_matrix = returns.cov()
+
     result = optimize_portfolio(mean_returns, cov_matrix, risk_tolerance, risk_free_rate)
     opt_weights = result.x
 
@@ -48,9 +57,12 @@ if st.button("Optimize Portfolio"):
 
     st.subheader("📊 Optimized Portfolio Statistics")
     ret, vol, sharpe = portfolio_stats(opt_weights, mean_returns, cov_matrix, risk_free_rate)
-    benchmark_data = yf.download(['SPY', 'IWM'], start=start_date, end=end_date)['Adj Close']
-    benchmark_returns = benchmark_data.pct_change().dropna()
-    spy_returns = benchmark_returns['SPY']
+
+    # Portfolio Analytics
+    benchmark_data = yf.download(['SPY'], start=start_date, end=end_date, group_by='ticker', auto_adjust=True)
+    benchmark_data = benchmark_data.xs('Close', axis=1, level=1)
+    spy_returns = benchmark_data['SPY'].pct_change().dropna()
+
     portfolio_returns = returns @ opt_weights[:len(returns.columns)]
     opt_cum_returns = (1 + portfolio_returns).cumprod()
     rolling_max = opt_cum_returns.cummax()
@@ -95,7 +107,7 @@ if st.button("Optimize Portfolio"):
         st.warning("No stocks to display for the selected sectors.")
 
     st.subheader("📌 Correlation Matrix of Portfolio Assets")
-    corr = returns[non_zero_df['Ticker']].corr()
+    corr = returns[selected_tickers].corr()
     fig, ax = plt.subplots()
     cax = ax.matshow(corr, cmap='coolwarm')
     fig.colorbar(cax)
