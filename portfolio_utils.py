@@ -8,7 +8,10 @@ def get_price_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end, group_by='ticker', auto_adjust=True)
     if len(tickers) == 1:
         return pd.DataFrame(data)
-    return data.xs('Close', axis=1, level=1)
+    if isinstance(data.columns, pd.MultiIndex):
+        return data.xs('Close', axis=1, level=1)
+    else:
+        return data
 
 def calculate_returns(prices):
     return prices.pct_change().dropna()
