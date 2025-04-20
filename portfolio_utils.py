@@ -6,12 +6,17 @@ import pandas as pd
 
 def get_price_data(tickers, start, end):
     data = yf.download(tickers, start=start, end=end, group_by='ticker', auto_adjust=True)
+
     if len(tickers) == 1:
-        return pd.DataFrame(data)
+        # Return single ticker as a single-column DataFrame
+        return data.to_frame(name=tickers[0]) if isinstance(data, pd.Series) else data[['Close']].rename(columns={'Close': tickers[0]})
+    
+    # Multi-ticker case with MultiIndex
     if isinstance(data.columns, pd.MultiIndex):
         return data.xs('Close', axis=1, level=1)
-    else:
-        return data
+    
+    raise ValueError("Unexpected data structure returned from yfinance.")
+
 
 def calculate_returns(prices):
     return prices.pct_change().dropna()
